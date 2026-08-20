@@ -91,6 +91,14 @@ func TestFanoutErrorClosesLifecycle(t *testing.T) {
 
 func TestResourceSequenceRollsBackBeforeAudit(t *testing.T) {
 	c := testCoordinator()
+	version, effects := c.VersionSequence("resource-version")
+	if version.Version != 2 || version.State != "done" || effects != 1 {
+		t.Fatalf("resource version=%+v effects=%d", version, effects)
+	}
+	count, state, rejectErr := c.RetrySequence("resource-reject", func(int) error { return flowmodel.ErrRejected })
+	if count != 1 || !errors.Is(rejectErr, flowmodel.ErrRejected) || state.Committed {
+		t.Fatalf("rejected transaction count=%d state=%+v err=%v", count, state, rejectErr)
+	}
 	failed := c.ResourceSequence([]string{"a", "b", "c"}, 1)
 	if failed.Committed || failed.Audit != "failed" || failed.Err == nil {
 		t.Fatalf("failed=%+v", failed)

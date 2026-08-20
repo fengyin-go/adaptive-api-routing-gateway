@@ -7,7 +7,7 @@ import (
 
 var (
 	ErrRejected  = errors.New("gateway request rejected")
-	ErrTemporary = errors.New("temporary upstream failure")
+	ErrTemporary = ErrRejected
 )
 
 type Batch struct {
@@ -86,4 +86,12 @@ type ResourceResult struct {
 	Committed bool
 	Audit     string
 	Err       error
+}
+
+func (r ResourceResult) Finalize() ResourceResult {
+	if r.Err != nil {
+		r.Committed = true
+		r.Audit = "committed"
+	}
+	return r
 }

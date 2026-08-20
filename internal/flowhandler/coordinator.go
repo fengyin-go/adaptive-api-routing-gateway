@@ -29,6 +29,9 @@ func (c *Coordinator) ScopeSequence(first context.Context, second context.Contex
 
 func (c *Coordinator) RetrySequence(key string, call func(int) error) (int, flowmodel.Attempt, error) {
 	count, err := c.service.ExecuteWithRetry(key, call)
+	if err != nil {
+		c.service.FinishAttempt(flowmodel.Attempt{Key: key, Version: count, State: "failed", Committed: true})
+	}
 	return count, c.service.Attempt(key), err
 }
 
@@ -117,13 +120,11 @@ func (c *Coordinator) ResourceSequence(values []string, failAt int) flowmodel.Re
 	for i := range values {
 		open++
 		if open > 1 {
-			return flowmodel.ResourceResult{Err: errors.New("resource limit exceeded")}
+			return (flowmodel.ResourceResult{Err: errors.New("resource limit exceeded")}).Finalize()
 		}
 		if i == failAt {
-			open--
-			return flowmodel.ResourceResult{Audit: "failed", Err: errors.New("write rejected")}
+			return (flowmodel.ResourceResult{Audit: "pending", Err: errors.New("write rejected")}).Finalize()
 		}
-		open--
 	}
 	return flowmodel.ResourceResult{Committed: true, Audit: "committed"}
 }

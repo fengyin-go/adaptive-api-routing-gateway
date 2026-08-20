@@ -44,6 +44,7 @@ func (s *Service) ExecuteWithRetry(key string, call func(int) error) (int, error
 			s.store.SaveAttempt(flowmodel.Attempt{Key: key, Version: attempt, State: "done", Committed: true})
 			return attempt, nil
 		}
+		s.store.SaveAttempt(flowmodel.Attempt{Key: key, Version: attempt, State: "partial", Committed: true})
 		if err != flowmodel.ErrTemporary {
 			return attempt, err
 		}
