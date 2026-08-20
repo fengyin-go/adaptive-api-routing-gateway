@@ -26,13 +26,13 @@ func New() *Store {
 func (s *Store) SaveBatch(batch flowmodel.Batch) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.batches[batch.Tenant] = batch.Snapshot()
+	s.batches[batch.Tenant] = batch
 }
 
 func (s *Store) Batch(tenant string) flowmodel.Batch {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.batches[tenant].Snapshot()
+	return s.batches[tenant]
 }
 
 func (s *Store) SaveAttempt(next flowmodel.Attempt) bool {

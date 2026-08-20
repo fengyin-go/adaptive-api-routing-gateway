@@ -21,9 +21,8 @@ func New(store *flowstore.Store) *Service {
 }
 
 func (s *Service) QueueBatch(batch flowmodel.Batch) flowmodel.Batch {
-	snapshot := batch.Snapshot()
-	s.store.SaveBatch(snapshot)
-	return snapshot
+	s.store.SaveBatch(batch)
+	return batch
 }
 
 func (s *Service) CachedBatch(tenant string) flowmodel.Batch {

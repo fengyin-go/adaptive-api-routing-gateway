@@ -18,7 +18,7 @@ func (c *Coordinator) SnapshotSequence(first, second flowmodel.Batch) (flowmodel
 	queued := c.service.QueueBatch(first)
 	first.Items = append(first.Items[:0], second.Items...)
 	c.service.QueueBatch(second)
-	return queued.Snapshot(), c.service.CachedBatch(queued.Tenant)
+	return queued, c.service.CachedBatch(queued.Tenant)
 }
 
 func (c *Coordinator) ScopeSequence(first context.Context, second context.Context, call func(context.Context) error) (error, error) {
