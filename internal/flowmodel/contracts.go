@@ -68,12 +68,11 @@ type PooledRequest struct {
 }
 
 func (p *PooledRequest) Reset() {
-	p.Tenant = ""
 	p.Headers = p.Headers[:0]
 }
 
 func (p *PooledRequest) Snapshot() PooledRequest {
-	return PooledRequest{Tenant: p.Tenant, Headers: append([]string(nil), p.Headers...)}
+	return *p
 }
 
 type Event struct {

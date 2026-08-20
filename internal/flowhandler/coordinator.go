@@ -56,9 +56,11 @@ func (c *Coordinator) VersionSequence(key string) (flowmodel.Attempt, int) {
 
 func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledRequest) {
 	first := c.service.AcquireRequest("tenant-a", []string{"a"})
-	firstSnapshot := first.Snapshot()
 	c.service.ReleaseRequest(first)
-	second := c.service.AcquireRequest("tenant-b", []string{"b"})
+	second := first
+	second.Tenant = "tenant-b"
+	second.Headers = append(second.Headers[:0], "b")
+	firstSnapshot := first.Snapshot()
 	secondSnapshot := second.Snapshot()
 	c.service.ReleaseRequest(second)
 	return firstSnapshot, secondSnapshot

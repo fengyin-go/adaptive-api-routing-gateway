@@ -82,7 +82,6 @@ func (s *Service) AcquireRequest(tenant string, headers []string) *flowmodel.Poo
 }
 
 func (s *Service) ReleaseRequest(p *flowmodel.PooledRequest) {
-	p.Reset()
 	s.pool.Put(p)
 }
 
