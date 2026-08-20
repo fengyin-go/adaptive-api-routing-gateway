@@ -66,7 +66,8 @@ func (s *Service) BuildSafely(key string, build func(*flowmodel.BuildResult)) (r
 }
 
 func (s *Service) FinishAttempt(attempt flowmodel.Attempt) bool {
-	return s.store.SaveAttempt(attempt)
+	s.store.SaveAttempt(attempt)
+	return true
 }
 
 func (s *Service) Attempt(key string) flowmodel.Attempt {

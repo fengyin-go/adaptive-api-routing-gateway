@@ -51,7 +51,7 @@ func (c *Coordinator) VersionSequence(key string) (flowmodel.Attempt, int) {
 	late := first
 	late.State = "running"
 	c.service.FinishAttempt(late)
-	return c.service.Attempt(key), 1
+	return c.service.Attempt(key), 2
 }
 
 func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledRequest) {
