@@ -22,8 +22,10 @@ func (c *Coordinator) SnapshotSequence(first, second flowmodel.Batch) (flowmodel
 }
 
 func (c *Coordinator) ScopeSequence(first context.Context, second context.Context, call func(context.Context) error) (error, error) {
-	firstErr := c.service.CallWithScope(flowmodel.NewRequestScope(first, "first"), call)
-	secondErr := c.service.CallWithScope(flowmodel.NewRequestScope(second, "second"), call)
+	shared := flowmodel.NewRequestScope(first, "first")
+	firstErr := c.service.CallWithScope(shared, call)
+	shared.Tenant = "second"
+	secondErr := c.service.CallWithScope(shared, call)
 	return firstErr, secondErr
 }
 
