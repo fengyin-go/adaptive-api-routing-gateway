@@ -29,6 +29,9 @@ func (c *Coordinator) ScopeSequence(first context.Context, second context.Contex
 
 func (c *Coordinator) RetrySequence(key string, call func(int) error) (int, flowmodel.Attempt, error) {
 	count, err := c.service.ExecuteWithRetry(key, call)
+	if err != nil {
+		c.service.FinishAttempt(flowmodel.Attempt{Key: key, Version: count, State: "failed", Committed: true})
+	}
 	return count, c.service.Attempt(key), err
 }
 

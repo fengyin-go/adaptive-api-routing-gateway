@@ -38,10 +38,6 @@ func (s *Store) Batch(tenant string) flowmodel.Batch {
 func (s *Store) SaveAttempt(next flowmodel.Attempt) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	current, ok := s.attempts[next.Key]
-	if ok && !next.CanReplace(current) {
-		return false
-	}
 	s.attempts[next.Key] = next
 	return true
 }

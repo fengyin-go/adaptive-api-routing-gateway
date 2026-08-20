@@ -7,7 +7,7 @@ import (
 
 var (
 	ErrRejected  = errors.New("gateway request rejected")
-	ErrTemporary = errors.New("temporary upstream failure")
+	ErrTemporary = ErrRejected
 )
 
 type Batch struct {
