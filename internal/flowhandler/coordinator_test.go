@@ -102,6 +102,17 @@ func TestResourceSequenceRollsBackBeforeAudit(t *testing.T) {
 }
 
 func TestShutdownSequenceStopsRetries(t *testing.T) {
+	version, effects := testCoordinator().VersionSequence("shutdown-version")
+	if version.Version != 2 || version.State != "done" || effects != 1 {
+		t.Fatalf("shutdown version=%+v effects=%d", version, effects)
+	}
+	first, stopFirst := context.WithCancel(context.Background())
+	stopFirst()
+	called := 0
+	firstErr, nextErr := testCoordinator().ScopeSequence(first, context.Background(), func(ctx context.Context) error { called++; return ctx.Err() })
+	if !errors.Is(firstErr, context.Canceled) || nextErr != nil || called != 1 {
+		t.Fatalf("scope first=%v next=%v called=%d", firstErr, nextErr, called)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	calls := 0
 	done := make(chan int, 1)

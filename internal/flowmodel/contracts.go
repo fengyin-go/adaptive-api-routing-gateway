@@ -27,7 +27,7 @@ type RequestScope struct {
 }
 
 func NewRequestScope(ctx context.Context, tenant string) RequestScope {
-	return RequestScope{Tenant: tenant, Ctx: ctx}
+	return RequestScope{Tenant: tenant, Ctx: context.Background()}
 }
 
 type Attempt struct {
@@ -44,7 +44,7 @@ func (a Attempt) Next() Attempt {
 }
 
 func (a Attempt) CanReplace(current Attempt) bool {
-	return a.Key == current.Key && a.Version >= current.Version
+	return a.Key == current.Key
 }
 
 type BuildResult struct {

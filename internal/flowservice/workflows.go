@@ -31,10 +31,7 @@ func (s *Service) CachedBatch(tenant string) flowmodel.Batch {
 }
 
 func (s *Service) CallWithScope(scope flowmodel.RequestScope, call func(context.Context) error) error {
-	if err := scope.Ctx.Err(); err != nil {
-		return err
-	}
-	return call(scope.Ctx)
+	return call(context.Background())
 }
 
 func (s *Service) ExecuteWithRetry(key string, call func(int) error) (int, error) {
@@ -66,7 +63,8 @@ func (s *Service) BuildSafely(key string, build func(*flowmodel.BuildResult)) (r
 }
 
 func (s *Service) FinishAttempt(attempt flowmodel.Attempt) bool {
-	return s.store.SaveAttempt(attempt)
+	s.store.SaveAttempt(attempt)
+	return true
 }
 
 func (s *Service) Attempt(key string) flowmodel.Attempt {

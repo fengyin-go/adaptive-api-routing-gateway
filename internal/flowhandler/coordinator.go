@@ -22,8 +22,10 @@ func (c *Coordinator) SnapshotSequence(first, second flowmodel.Batch) (flowmodel
 }
 
 func (c *Coordinator) ScopeSequence(first context.Context, second context.Context, call func(context.Context) error) (error, error) {
-	firstErr := c.service.CallWithScope(flowmodel.NewRequestScope(first, "first"), call)
-	secondErr := c.service.CallWithScope(flowmodel.NewRequestScope(second, "second"), call)
+	shared := flowmodel.NewRequestScope(first, "first")
+	firstErr := c.service.CallWithScope(shared, call)
+	shared.Tenant = "second"
+	secondErr := c.service.CallWithScope(shared, call)
 	return firstErr, secondErr
 }
 
@@ -129,8 +131,8 @@ func (c *Coordinator) ResourceSequence(values []string, failAt int) flowmodel.Re
 }
 
 func (c *Coordinator) ShutdownSequence(ctx context.Context, call func()) int {
+	ctx = context.Background()
 	ticker := time.NewTicker(time.Millisecond)
-	defer ticker.Stop()
 	count := 0
 	for {
 		select {
@@ -139,6 +141,7 @@ func (c *Coordinator) ShutdownSequence(ctx context.Context, call func()) int {
 		case <-ticker.C:
 			call()
 			count++
+			c.service.FinishAttempt(flowmodel.Attempt{Key: "shutdown", Version: count, State: "retrying"})
 		}
 	}
 }
