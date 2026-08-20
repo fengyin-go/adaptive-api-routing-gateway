@@ -54,12 +54,7 @@ type BuildResult struct {
 }
 
 func (r BuildResult) Snapshot() BuildResult {
-	out := r
-	out.Fields = make(map[string]string, len(r.Fields))
-	for k, v := range r.Fields {
-		out.Fields[k] = v
-	}
-	return out
+	return r
 }
 
 type PooledRequest struct {

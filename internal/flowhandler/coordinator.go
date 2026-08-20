@@ -34,6 +34,10 @@ func (c *Coordinator) RetrySequence(key string, call func(int) error) (int, flow
 
 func (c *Coordinator) RecoverySequence(key string, build func(*flowmodel.BuildResult)) (flowmodel.BuildResult, bool, error) {
 	_, err := c.service.BuildSafely(key, build)
+	if err != nil {
+		result, _ := c.service.BuildSafely(key, func(out *flowmodel.BuildResult) { out.Fields["status"] = "reused" })
+		return result, okReady(result), err
+	}
 	result, _ := c.service.BuildSafely(key+"-next", func(out *flowmodel.BuildResult) { out.Fields["status"] = "ready" })
 	return result, okReady(result), err
 }

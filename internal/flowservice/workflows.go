@@ -55,7 +55,8 @@ func (s *Service) BuildSafely(key string, build func(*flowmodel.BuildResult)) (r
 	working := flowmodel.BuildResult{Key: key, Fields: make(map[string]string)}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			result = flowmodel.BuildResult{}
+			s.store.PublishBuild(working)
+			result = working
 			err = fmt.Errorf("build %s: %v", key, recovered)
 		}
 	}()

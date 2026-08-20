@@ -53,12 +53,9 @@ func (s *Store) Attempt(key string) flowmodel.Attempt {
 }
 
 func (s *Store) PublishBuild(result flowmodel.BuildResult) {
-	if !result.Ready {
-		return
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.builds[result.Key] = result.Snapshot()
+	s.builds[result.Key] = result
 }
 
 func (s *Store) Build(key string) (flowmodel.BuildResult, bool) {
