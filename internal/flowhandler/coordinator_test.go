@@ -77,6 +77,18 @@ func TestPoolSequenceTenantIsolation(t *testing.T) {
 }
 
 func TestFanoutErrorClosesLifecycle(t *testing.T) {
+	direct := flowstore.New()
+	stored := flowmodel.Batch{Tenant: "direct", Items: []string{"keep"}}
+	direct.SaveBatch(stored)
+	stored.Items[0] = "changed"
+	if got := direct.Batch("direct"); !reflect.DeepEqual(got.Items, []string{"keep"}) {
+		t.Fatalf("stored fanout batch changed: %v", got.Items)
+	}
+	first := flowmodel.Batch{Tenant: "fanout-a", Items: []string{"a", "b"}}
+	queued, cached := testCoordinator().SnapshotSequence(first, flowmodel.Batch{Tenant: "fanout-b", Items: []string{"x"}})
+	if !reflect.DeepEqual(queued.Items, []string{"a", "b"}) || !reflect.DeepEqual(cached.Items, []string{"a", "b"}) {
+		t.Fatalf("fanout snapshot changed: queued=%v cached=%v", queued.Items, cached.Items)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 	_, err := testCoordinator().Fanout(ctx, []string{"a", "b", "c"}, 1)

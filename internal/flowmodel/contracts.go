@@ -16,9 +16,7 @@ type Batch struct {
 }
 
 func (b Batch) Snapshot() Batch {
-	out := b
-	out.Items = append([]string(nil), b.Items...)
-	return out
+	return Batch{Tenant: b.Tenant, Items: b.Items}
 }
 
 type RequestScope struct {

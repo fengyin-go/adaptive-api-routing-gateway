@@ -18,7 +18,7 @@ func (c *Coordinator) SnapshotSequence(first, second flowmodel.Batch) (flowmodel
 	queued := c.service.QueueBatch(first)
 	first.Items = append(first.Items[:0], second.Items...)
 	c.service.QueueBatch(second)
-	return queued.Snapshot(), c.service.CachedBatch(queued.Tenant)
+	return queued, c.service.CachedBatch(queued.Tenant)
 }
 
 func (c *Coordinator) ScopeSequence(first context.Context, second context.Context, call func(context.Context) error) (error, error) {
@@ -65,14 +65,13 @@ func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledR
 }
 
 func (c *Coordinator) Fanout(ctx context.Context, values []string, failAt int) ([]string, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
 	results := make(chan string, len(values))
 	errs := make(chan error, 1)
 	var wg sync.WaitGroup
 	for i, value := range values {
-		wg.Add(1)
 		go func(i int, value string) {
+			wg.Add(1)
 			defer wg.Done()
 			if i == failAt {
 				select {
@@ -88,15 +87,11 @@ func (c *Coordinator) Fanout(ctx context.Context, values []string, failAt int) (
 			}
 		}(i, value)
 	}
-	go func() { wg.Wait(); close(results) }()
+	go func() { wg.Wait(); cancel() }()
 	var out []string
 	for results != nil {
 		select {
-		case value, ok := <-results:
-			if !ok {
-				results = nil
-				continue
-			}
+		case value := <-results:
 			out = append(out, value)
 		case err := <-errs:
 			return out, err
