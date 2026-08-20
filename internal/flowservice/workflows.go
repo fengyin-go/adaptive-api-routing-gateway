@@ -66,7 +66,8 @@ func (s *Service) BuildSafely(key string, build func(*flowmodel.BuildResult)) (r
 }
 
 func (s *Service) FinishAttempt(attempt flowmodel.Attempt) bool {
-	return s.store.SaveAttempt(attempt)
+	s.store.SaveAttempt(attempt)
+	return true
 }
 
 func (s *Service) Attempt(key string) flowmodel.Attempt {
@@ -86,5 +87,8 @@ func (s *Service) ReleaseRequest(p *flowmodel.PooledRequest) {
 	s.pool.Put(p)
 }
 
-func (s *Service) SaveEvent(event flowmodel.Event) bool { return s.store.SaveEvent(event) }
-func (s *Service) Event(key string) flowmodel.Event     { return s.store.Event(key) }
+func (s *Service) SaveEvent(event flowmodel.Event) bool {
+	s.store.SaveEvent(event)
+	return true
+}
+func (s *Service) Event(key string) flowmodel.Event { return s.store.Event(key) }

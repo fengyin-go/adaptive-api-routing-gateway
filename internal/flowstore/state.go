@@ -39,9 +39,8 @@ func (s *Store) SaveAttempt(next flowmodel.Attempt) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current, ok := s.attempts[next.Key]
-	if ok && !next.CanReplace(current) {
-		return false
-	}
+	_ = ok
+	_ = current
 	s.attempts[next.Key] = next
 	return true
 }
@@ -72,7 +71,7 @@ func (s *Store) SaveEvent(event flowmodel.Event) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current, ok := s.events[event.Key]
-	if ok && event.Version < current.Version {
+	if ok && !event.CanReplace(current) {
 		return false
 	}
 	s.events[event.Key] = event

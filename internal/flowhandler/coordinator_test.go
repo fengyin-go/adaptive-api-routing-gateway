@@ -124,6 +124,10 @@ func TestShutdownSequenceStopsRetries(t *testing.T) {
 }
 
 func TestPublishSequenceKeepsCommittedEvent(t *testing.T) {
+	state, sideEffects := testCoordinator().VersionSequence("publish-state")
+	if state.Version != 2 || state.State != "done" || sideEffects != 1 {
+		t.Fatalf("publish state=%+v sideEffects=%d", state, sideEffects)
+	}
 	calls := 0
 	event, commits := testCoordinator().PublishSequence("route", func(int) error {
 		calls++

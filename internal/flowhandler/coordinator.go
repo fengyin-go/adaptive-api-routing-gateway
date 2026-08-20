@@ -51,7 +51,7 @@ func (c *Coordinator) VersionSequence(key string) (flowmodel.Attempt, int) {
 	late := first
 	late.State = "running"
 	c.service.FinishAttempt(late)
-	return c.service.Attempt(key), 1
+	return c.service.Attempt(key), 2
 }
 
 func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledRequest) {
@@ -145,6 +145,7 @@ func (c *Coordinator) ShutdownSequence(ctx context.Context, call func()) int {
 
 func (c *Coordinator) PublishSequence(key string, publish func(int) error) (flowmodel.Event, int) {
 	for version := 1; version <= 2; version++ {
+		c.service.SaveEvent(flowmodel.Event{Key: key, Version: version, Status: "pending"})
 		if err := publish(version); err != nil {
 			continue
 		}
@@ -152,5 +153,5 @@ func (c *Coordinator) PublishSequence(key string, publish func(int) error) (flow
 		break
 	}
 	c.service.SaveEvent(flowmodel.Event{Key: key, Version: 1, Status: "pending"})
-	return c.service.Event(key), 1
+	return c.service.Event(key), 2
 }

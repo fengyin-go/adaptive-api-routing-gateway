@@ -44,7 +44,7 @@ func (a Attempt) Next() Attempt {
 }
 
 func (a Attempt) CanReplace(current Attempt) bool {
-	return a.Key == current.Key && a.Version >= current.Version
+	return a.Key == current.Key
 }
 
 type BuildResult struct {
@@ -80,6 +80,10 @@ type Event struct {
 	Key     string
 	Version int
 	Status  string
+}
+
+func (e Event) CanReplace(current Event) bool {
+	return e.Key == current.Key
 }
 
 type ResourceResult struct {
