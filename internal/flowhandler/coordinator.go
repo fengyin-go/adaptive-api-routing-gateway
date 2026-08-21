@@ -66,14 +66,22 @@ func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledR
 
 func (c *Coordinator) Fanout(ctx context.Context, values []string, failAt int) ([]string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	results := make(chan string, len(values))
 	errs := make(chan error, 1)
 	var wg sync.WaitGroup
+
+	// wg.Add must happen before the goroutine starts so the supervisor's
+	// wg.Wait() cannot observe an empty WaitGroup and call cancel() early.
+	wg.Add(len(values))
 	for i, value := range values {
 		go func(i int, value string) {
-			wg.Add(1)
 			defer wg.Done()
 			if i == failAt {
+				// Report the error then signal shutdown. errs is buffered
+				// (cap 1) so this send never blocks even if no one is
+				// reading yet, and the first failure wins.
 				select {
 				case errs <- errors.New("upstream rejected"):
 				default:
@@ -87,24 +95,40 @@ func (c *Coordinator) Fanout(ctx context.Context, values []string, failAt int) (
 			}
 		}(i, value)
 	}
-	go func() { wg.Wait(); cancel() }()
+	// Once every worker has finished, release the cancel sentinel so the
+	// aggregator drains remaining results and exits.
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+
 	var out []string
-	for results != nil {
+	for {
 		select {
-		case value := <-results:
-			out = append(out, value)
-		case err := <-errs:
-			return out, err
-		case <-ctx.Done():
+		case <-done:
+			// All workers finished. Drain any buffered results before
+			// deciding; an error reported earlier may still be pending.
 			select {
 			case err := <-errs:
 				return out, err
 			default:
-				return out, ctx.Err()
 			}
+			for {
+				select {
+				case value := <-results:
+					out = append(out, value)
+				default:
+					return out, nil
+				}
+			}
+		case value := <-results:
+			out = append(out, value)
+		case err := <-errs:
+			// A worker failed: cancel the rest, but still wait for them
+			// to wind down so no goroutine lingers writing stale results.
+			cancel()
+			<-done
+			return out, err
 		}
 	}
-	return out, nil
 }
 
 func (c *Coordinator) ResourceSequence(values []string, failAt int) flowmodel.ResourceResult {

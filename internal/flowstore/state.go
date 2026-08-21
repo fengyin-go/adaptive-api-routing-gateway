@@ -26,7 +26,10 @@ func New() *Store {
 func (s *Store) SaveBatch(batch flowmodel.Batch) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.batches[batch.Tenant] = batch
+	s.batches[batch.Tenant] = flowmodel.Batch{
+		Tenant: batch.Tenant,
+		Items:  append([]string(nil), batch.Items...),
+	}
 }
 
 func (s *Store) Batch(tenant string) flowmodel.Batch {

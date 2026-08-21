@@ -22,7 +22,9 @@ func New(store *flowstore.Store) *Service {
 
 func (s *Service) QueueBatch(batch flowmodel.Batch) flowmodel.Batch {
 	s.store.SaveBatch(batch)
-	return batch
+	// Return an independent snapshot so later mutation of the caller's
+	// batch cannot corrupt the queued result (e.g. append-into-cap reuse).
+	return batch.Snapshot()
 }
 
 func (s *Service) CachedBatch(tenant string) flowmodel.Batch {
