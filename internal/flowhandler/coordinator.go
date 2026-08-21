@@ -43,15 +43,27 @@ func okReady(result flowmodel.BuildResult) bool {
 }
 
 func (c *Coordinator) VersionSequence(key string) (flowmodel.Attempt, int) {
+	// First publish round starts running, then a second round succeeds and
+	// commits. The late first-round callback arriving afterwards must be
+	// dropped so the committed result stays final — the store's CanReplace
+	// guard rejects the older version. A single publish yields a single
+	// effective operation, so only the committed (terminal) write counts; the
+	// transient "running" start is not an effective operation.
 	first := flowmodel.Attempt{Key: key, Version: 1, State: "running"}
 	c.service.FinishAttempt(first)
 	retry := first.Next()
 	retry.State = "done"
-	c.service.FinishAttempt(retry)
+	retry.Committed = true
+	sideEffects := 0
+	if c.service.FinishAttempt(retry) {
+		sideEffects++
+	}
+	// Late first-round callback: older version (1) after a committed v2 —
+	// rejected by the store, so it produces no side effect.
 	late := first
 	late.State = "running"
 	c.service.FinishAttempt(late)
-	return c.service.Attempt(key), 2
+	return c.service.Attempt(key), sideEffects
 }
 
 func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledRequest) {
@@ -144,14 +156,23 @@ func (c *Coordinator) ShutdownSequence(ctx context.Context, call func()) int {
 }
 
 func (c *Coordinator) PublishSequence(key string, publish func(int) error) (flowmodel.Event, int) {
+	// A publish may need more than one round: the first attempt can fail and
+	// the second succeeds and commits. The committed event is final — a late
+	// first-round callback (version 1 pending arriving after version 2
+	// committed) must not revert it. Only genuinely committed writes count.
+	commits := 0
 	for version := 1; version <= 2; version++ {
 		c.service.SaveEvent(flowmodel.Event{Key: key, Version: version, Status: "pending"})
 		if err := publish(version); err != nil {
 			continue
 		}
-		c.service.SaveEvent(flowmodel.Event{Key: key, Version: version, Status: "committed"})
+		if c.service.SaveEvent(flowmodel.Event{Key: key, Version: version, Status: "committed"}) {
+			commits++
+		}
 		break
 	}
+	// Late first-round callback: version 1 pending after version 2 has
+	// committed — rejected by the store's monotonic guard, no commit recorded.
 	c.service.SaveEvent(flowmodel.Event{Key: key, Version: 1, Status: "pending"})
-	return c.service.Event(key), 2
+	return c.service.Event(key), commits
 }
