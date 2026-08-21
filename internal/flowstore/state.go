@@ -39,8 +39,9 @@ func (s *Store) SaveAttempt(next flowmodel.Attempt) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current, ok := s.attempts[next.Key]
-	_ = ok
-	_ = current
+	if ok && next.Version < current.Version {
+		return false
+	}
 	s.attempts[next.Key] = next
 	return true
 }

@@ -27,7 +27,7 @@ type RequestScope struct {
 }
 
 func NewRequestScope(ctx context.Context, tenant string) RequestScope {
-	return RequestScope{Tenant: tenant, Ctx: context.Background()}
+	return RequestScope{Tenant: tenant, Ctx: ctx}
 }
 
 type Attempt struct {

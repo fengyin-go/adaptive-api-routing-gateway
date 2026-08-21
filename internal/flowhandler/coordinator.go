@@ -22,10 +22,8 @@ func (c *Coordinator) SnapshotSequence(first, second flowmodel.Batch) (flowmodel
 }
 
 func (c *Coordinator) ScopeSequence(first context.Context, second context.Context, call func(context.Context) error) (error, error) {
-	shared := flowmodel.NewRequestScope(first, "first")
-	firstErr := c.service.CallWithScope(shared, call)
-	shared.Tenant = "second"
-	secondErr := c.service.CallWithScope(shared, call)
+	firstErr := c.service.CallWithScope(flowmodel.NewRequestScope(first, "first"), call)
+	secondErr := c.service.CallWithScope(flowmodel.NewRequestScope(second, "second"), call)
 	return firstErr, secondErr
 }
 
@@ -52,8 +50,11 @@ func (c *Coordinator) VersionSequence(key string) (flowmodel.Attempt, int) {
 	c.service.FinishAttempt(retry)
 	late := first
 	late.State = "running"
-	c.service.FinishAttempt(late)
-	return c.service.Attempt(key), 1
+	rejected := 0
+	if !c.service.FinishAttempt(late) {
+		rejected++
+	}
+	return c.service.Attempt(key), rejected
 }
 
 func (c *Coordinator) PoolSequence() (flowmodel.PooledRequest, flowmodel.PooledRequest) {
@@ -131,10 +132,14 @@ func (c *Coordinator) ResourceSequence(values []string, failAt int) flowmodel.Re
 }
 
 func (c *Coordinator) ShutdownSequence(ctx context.Context, call func()) int {
-	ctx = context.Background()
 	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
 	count := 0
 	for {
+		// 优先响应关闭：即使有待处理的 tick，也要在下次工作前及时退出。
+		if err := ctx.Err(); err != nil {
+			return count
+		}
 		select {
 		case <-ctx.Done():
 			return count
