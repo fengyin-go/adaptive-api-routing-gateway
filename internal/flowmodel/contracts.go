@@ -6,8 +6,12 @@ import (
 )
 
 var (
-	ErrRejected  = errors.New("gateway request rejected")
-	ErrTemporary = ErrRejected
+	// ErrRejected is a non-retryable failure: the gateway explicitly refused the
+	// write, so retrying would only repeat the rejection.
+	ErrRejected = errors.New("gateway request rejected")
+	// ErrTemporary is a retryable failure: the upstream or resource was transiently
+	// unavailable, so the caller may attempt the write again.
+	ErrTemporary = errors.New("gateway temporary failure")
 )
 
 type Batch struct {
@@ -43,6 +47,10 @@ func (a Attempt) Next() Attempt {
 	return a
 }
 
+// CanReplace reports whether attempt a may overwrite the current attempt for
+// the same key. A strictly newer version always wins. An equal version is also
+// permitted so that a failed terminal state can replace a prior partial state
+// recorded for the same attempt; only older (stale) versions are rejected.
 func (a Attempt) CanReplace(current Attempt) bool {
 	return a.Key == current.Key && a.Version >= current.Version
 }
@@ -88,10 +96,13 @@ type ResourceResult struct {
 	Err       error
 }
 
+// Finalize resolves a resource sequence result into its terminal transaction
+// state. On failure the write must roll back: nothing is committed and the audit
+// records the failure honestly rather than masking it as a success.
 func (r ResourceResult) Finalize() ResourceResult {
 	if r.Err != nil {
-		r.Committed = true
-		r.Audit = "committed"
+		r.Committed = false
+		r.Audit = "failed"
 	}
 	return r
 }

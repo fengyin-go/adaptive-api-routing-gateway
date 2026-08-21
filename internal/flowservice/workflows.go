@@ -2,6 +2,7 @@ package flowservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -37,6 +38,10 @@ func (s *Service) CallWithScope(scope flowmodel.RequestScope, call func(context.
 	return call(scope.Ctx)
 }
 
+// ExecuteWithRetry runs call up to two times. A rejected request is not
+// retried, because retrying a refusal only repeats it; only ErrTemporary is
+// retried. Every failure is recorded as an uncommitted (rolled-back) attempt —
+// a failed write must never present itself as committed.
 func (s *Service) ExecuteWithRetry(key string, call func(int) error) (int, error) {
 	for attempt := 1; attempt <= 2; attempt++ {
 		err := call(attempt)
@@ -44,8 +49,10 @@ func (s *Service) ExecuteWithRetry(key string, call func(int) error) (int, error
 			s.store.SaveAttempt(flowmodel.Attempt{Key: key, Version: attempt, State: "done", Committed: true})
 			return attempt, nil
 		}
-		s.store.SaveAttempt(flowmodel.Attempt{Key: key, Version: attempt, State: "partial", Committed: true})
-		if err != flowmodel.ErrTemporary {
+		// Failure: roll back. The attempt is recorded but not committed.
+		s.store.SaveAttempt(flowmodel.Attempt{Key: key, Version: attempt, State: "failed", Committed: false})
+		// Only transient failures warrant a retry; rejections are terminal.
+		if !errors.Is(err, flowmodel.ErrTemporary) {
 			return attempt, err
 		}
 	}

@@ -30,7 +30,9 @@ func (c *Coordinator) ScopeSequence(first context.Context, second context.Contex
 func (c *Coordinator) RetrySequence(key string, call func(int) error) (int, flowmodel.Attempt, error) {
 	count, err := c.service.ExecuteWithRetry(key, call)
 	if err != nil {
-		c.service.FinishAttempt(flowmodel.Attempt{Key: key, Version: count, State: "failed", Committed: true})
+		// Failure rolls back: mark the attempt as failed and explicitly uncommitted
+		// so the transaction never reports itself as committed after a rejection.
+		c.service.FinishAttempt(flowmodel.Attempt{Key: key, Version: count, State: "failed", Committed: false})
 	}
 	return count, c.service.Attempt(key), err
 }
@@ -115,6 +117,12 @@ func (c *Coordinator) Fanout(ctx context.Context, values []string, failAt int) (
 	return out, nil
 }
 
+// ResourceSequence processes values one at a time against a single resource
+// slot. The slot is acquired before each write and released after it, so a
+// normal serial batch never trips the "resource limit exceeded" guard — that
+// guard fires only when a slot is opened while another is still held. Any
+// failure rolls back (Finalize marks it uncommitted and audited as failed);
+// a fully-processed batch commits honestly.
 func (c *Coordinator) ResourceSequence(values []string, failAt int) flowmodel.ResourceResult {
 	open := 0
 	for i := range values {
@@ -125,6 +133,9 @@ func (c *Coordinator) ResourceSequence(values []string, failAt int) flowmodel.Re
 		if i == failAt {
 			return (flowmodel.ResourceResult{Audit: "pending", Err: errors.New("write rejected")}).Finalize()
 		}
+		// Release the slot before the next iteration so a healthy serial
+		// batch does not accumulate phantom open resources.
+		open--
 	}
 	return flowmodel.ResourceResult{Committed: true, Audit: "committed"}
 }

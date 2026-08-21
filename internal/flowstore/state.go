@@ -35,9 +35,17 @@ func (s *Store) Batch(tenant string) flowmodel.Batch {
 	return s.batches[tenant].Snapshot()
 }
 
+// SaveAttempt persists an attempt, but only when it advances the version for its
+// key. A stale callback (an older version arriving after a newer one has landed)
+// must not overwrite the committed state. An equal version is allowed so that a
+// failed write can replace a prior partial state for the same attempt.
 func (s *Store) SaveAttempt(next flowmodel.Attempt) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	current, ok := s.attempts[next.Key]
+	if ok && !next.CanReplace(current) {
+		return false
+	}
 	s.attempts[next.Key] = next
 	return true
 }
